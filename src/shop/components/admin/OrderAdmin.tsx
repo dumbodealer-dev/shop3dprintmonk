@@ -5,21 +5,21 @@ import { FileText, Truck } from "lucide-react";
 import { shopHref } from "@/shop/config";
 import { formatINR } from "@/shop/lib/money";
 import { ORDER_STATUS_LABEL, ORDER_TRANSITIONS, type OrderStatus } from "@/shop/lib/order-status";
-import { cancelOrderAction, clearReviewFlagAction, generateInvoiceAction, orderNoteAction, orderStatusAction, refundAction, shipmentAction, shiprocketShipmentAction } from "@/shop/server/admin/actions";
+import { cancelOrderAction, clearReviewFlagAction, generateInvoiceAction, orderNoteAction, orderStatusAction, refundAction, shipmentAction, shiprocketShipmentAction, syncTrackingAction } from "@/shop/server/admin/actions";
 import { Btn, F, inputCls, ResultNote, Toggle, useAdminAction } from "./kit";
 
 type Shipment = { id: string; carrier: string | null; tracking_number: string | null; tracking_url: string | null; status: string };
 
 export function OrderAdminPanel(props: {
   orderId: string; status: OrderStatus; paymentStatus: string; paymentMethod: string; grandTotal: number; refunded: number; invoiceNumber: string | null;
-  needsReview: boolean; shipments: Shipment[]; canRefund: boolean; shiprocket: boolean;
+  needsReview: boolean; shipments: Shipment[]; canRefund: boolean; shiprocket: boolean; delhivery: boolean;
 }) {
   const a = useAdminAction();
   const next = ORDER_TRANSITIONS[props.status].filter((s) => s !== "cancelled" && s !== "refunded");
   const [note, setNote] = useState("");
   const [visible, setVisible] = useState(false);
   const last = props.shipments.at(-1);
-  const [ship, setShip] = useState({ id: last?.id ?? null, carrier: last?.carrier ?? "", trackingNumber: last?.tracking_number ?? "", trackingUrl: last?.tracking_url ?? "", status: last?.status ?? "packed", markOrderShipped: !["shipped", "delivered"].includes(props.status) });
+  const [ship, setShip] = useState({ id: last?.id ?? null, carrier: last?.carrier ?? (props.delhivery ? "Delhivery" : ""), trackingNumber: last?.tracking_number ?? "", trackingUrl: last?.tracking_url ?? "", status: last?.status ?? "packed", markOrderShipped: !["shipped", "delivered"].includes(props.status) });
   const [refund, setRefund] = useState({ amount: String(Math.max(0, props.grandTotal - props.refunded)), reason: "", restock: false });
   const [cancel, setCancel] = useState({ reason: "", refund: true, restock: true });
   const paid = ["paid", "partially_refunded"].includes(props.paymentStatus);
@@ -55,12 +55,13 @@ export function OrderAdminPanel(props: {
             <F label="Courier"><input className={inputCls} list="carriers" value={ship.carrier} onChange={(e) => setShip({ ...ship, carrier: e.target.value })} /></F>
             <datalist id="carriers">{["Delhivery", "Blue Dart", "DTDC", "India Post (Speed Post)", "Xpressbees", "Ekart", "Shiprocket", "Self delivery"].map((c) => <option key={c} value={c} />)}</datalist>
             <F label="Tracking / AWB number"><input className={inputCls} value={ship.trackingNumber} onChange={(e) => setShip({ ...ship, trackingNumber: e.target.value })} /></F>
-            <F label="Tracking link" hint="Auto-filled for common couriers"><input className={inputCls} value={ship.trackingUrl} onChange={(e) => setShip({ ...ship, trackingUrl: e.target.value })} /></F>
+            <F label="Tracking link" hint={props.delhivery && /delhivery/i.test(ship.carrier) ? "Filled automatically — live scans sync from Delhivery" : "Auto-filled for common couriers"}><input className={inputCls} value={ship.trackingUrl} onChange={(e) => setShip({ ...ship, trackingUrl: e.target.value })} /></F>
             <F label="Shipment status"><select className={inputCls} value={ship.status} onChange={(e) => setShip({ ...ship, status: e.target.value })}>{["pending", "packed", "shipped", "in_transit", "out_for_delivery", "delivered", "returned", "cancelled"].map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</select></F>
           </div>
           {!["shipped", "delivered"].includes(props.status) && <div className="mt-3"><Toggle label="Also mark the order as shipped and email the customer" checked={ship.markOrderShipped} onChange={(v) => setShip({ ...ship, markOrderShipped: v })} /></div>}
           <div className="mt-4 flex flex-wrap gap-2">
             <Btn pending={a.pending} onClick={() => a.run(() => shipmentAction(props.orderId, ship))}>{ship.id ? "Update shipment" : "Save shipment"}</Btn>
+            {props.delhivery && props.shipments.some((x) => /delhivery/i.test(x.carrier ?? "") && x.tracking_number) && <Btn variant="outline" pending={a.pending} onClick={() => a.run(() => syncTrackingAction(props.orderId))}>Sync Delhivery tracking</Btn>}
             {props.shiprocket && <Btn variant="outline" pending={a.pending} onClick={() => a.run(() => shiprocketShipmentAction(props.orderId), { confirm: "Create this shipment in Shiprocket and request an AWB?" })}>Create via Shiprocket</Btn>}
             {ship.id && <Btn variant="outline" onClick={() => setShip({ id: null, carrier: "", trackingNumber: "", trackingUrl: "", status: "packed", markOrderShipped: false })}>Add another parcel</Btn>}
           </div>

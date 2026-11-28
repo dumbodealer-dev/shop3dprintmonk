@@ -8,7 +8,8 @@ import { shopEnv } from "../env";
 import { DUMMY_HASH, hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
 import { consumeToken, issueToken } from "./tokens";
 
-export const CUSTOMER_COOKIE = "pm_shop_sid";
+export { CUSTOMER_COOKIE } from "@/shop/cookies";
+import { CUSTOMER_COOKIE } from "@/shop/cookies";
 const SESSION_DAYS = 30;
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 15;

@@ -37,9 +37,12 @@ export async function resolveCoupon(code: string, who: { email?: string | null; 
   if (c.ends_at && Date.parse(c.ends_at) <= now) return { ok: false, error: "This code has expired." };
   if (c.usage_limit != null && c.used_count >= c.usage_limit) return { ok: false, error: "This code has reached its usage limit." };
 
-  const email = who.email?.toLowerCase();
-  if ((c.per_customer_limit != null || c.first_order_only) && (email || who.customerId)) {
-    const ident = [email ? `email.eq.${email.replace(/[,()"]/g, "")}` : null, who.customerId ? `customer_id.eq.${who.customerId}` : null].filter(Boolean).join(",");
+  // Only well-formed addresses are used inside the PostgREST filter below (no commas, parentheses or quotes).
+  const rawEmail = who.email?.trim().toLowerCase();
+  const email = rawEmail && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(rawEmail) ? rawEmail : null;
+  const customerId = who.customerId && /^[0-9a-f-]{36}$/i.test(who.customerId) ? who.customerId : null;
+  if ((c.per_customer_limit != null || c.first_order_only) && (email || customerId)) {
+    const ident = [email ? `email.eq.${email}` : null, customerId ? `customer_id.eq.${customerId}` : null].filter(Boolean).join(",");
     if (c.per_customer_limit != null) {
       const { count } = await db().from("shop_coupon_redemptions").select("id", { count: "exact", head: true }).eq("coupon_id", c.id).or(ident);
       if ((count ?? 0) >= c.per_customer_limit) return { ok: false, error: "You've already used this code." };

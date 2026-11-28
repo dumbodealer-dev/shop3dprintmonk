@@ -3,6 +3,7 @@ import { z } from "zod";
 import { slugify } from "@/shop/lib/slug";
 import { csvObjects, toCsv } from "@/shop/lib/csv";
 import { db, must, ShopError } from "../db";
+import { isStorageUrl, optionalStorageUrl, storageUrlSchema } from "@/shop/lib/url";
 
 /** Validation for the admin product editor. Prices, stock and SKUs are checked here on the server. */
 const money = z.coerce.number().min(0).max(10_000_000);
@@ -45,10 +46,10 @@ export const productInputSchema = z
     isBestseller: z.boolean().default(false),
     isNew: z.boolean().default(false),
     tags: z.array(z.string().trim().min(1).max(40)).max(30).default([]),
-    modelUrl: z.url().nullable().optional().or(z.literal("")).transform((v) => v || null),
+    modelUrl: optionalStorageUrl,
     seoTitle: text(70),
     seoDescription: text(170),
-    images: z.array(z.object({ id: z.uuid().optional().nullable(), url: z.url(), storagePath: z.string().max(300).nullable().optional(), alt: text(200), width: z.number().int().positive().nullable().optional(), height: z.number().int().positive().nullable().optional() })).max(20).default([]),
+    images: z.array(z.object({ id: z.uuid().optional().nullable(), url: storageUrlSchema, storagePath: z.string().max(300).nullable().optional(), alt: text(200), width: z.number().int().positive().nullable().optional(), height: z.number().int().positive().nullable().optional() })).max(20).default([]),
     variants: z
       .array(
         z.object({
@@ -223,7 +224,7 @@ export async function importProductsCsv(csv: string, adminId: string) {
         pid = (res as unknown as { id: string }).id;
         productIds.set(slug, pid);
         products++;
-        const urls = (r.image_urls ?? "").split(/\s+/).filter((u) => /^https:\/\//.test(u)).slice(0, 20);
+        const urls = (r.image_urls ?? "").split(/\s+/).filter(isStorageUrl).slice(0, 20); // only our own storage (anything else would break next/image)
         if (urls.length) {
           await db().from("shop_product_images").delete().eq("product_id", pid);
           await db().from("shop_product_images").insert(urls.map((url, n) => ({ product_id: pid, url, alt: r.name, sort_order: n })));

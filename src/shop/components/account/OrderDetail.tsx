@@ -1,11 +1,13 @@
 import Image from "next/image";
-import { Check, CircleCheck, Download, ExternalLink, FileText, Package } from "lucide-react";
+import { Check, CircleCheck, Download, FileText } from "lucide-react";
 import { shopHref } from "@/shop/config";
 import { formatINR } from "@/shop/lib/money";
 import { customerCanCancel, ORDER_STATUS_LABEL, PAYMENT_STATUS_LABEL, statusTone, TRACKING_STEPS } from "@/shop/lib/order-status";
 import type { OrderRow } from "@/shop/server/orders";
+import { publicShipments } from "@/shop/server/shipping/public";
 import { Badge, Notice, ProductPlaceholder, type Tone } from "../ui";
 import { OrderActions } from "./OrderActions";
+import { TrackingPanel } from "./TrackingPanel";
 
 const toneFor = (s: string): Tone => statusTone(s) as Tone;
 const dt = (s: string) => new Date(s).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
@@ -15,7 +17,7 @@ export function OrderDetail({ order: o, accessKey, justPlaced }: { order: OrderR
   const keyQ = accessKey ? `?key=${encodeURIComponent(accessKey)}` : "";
   const stepIndex = TRACKING_STEPS.indexOf(o.status === "pending_payment" ? "payment_confirmed" : o.status);
   const reached = (i: number) => stepIndex >= 0 && i <= stepIndex && o.status !== "pending_payment";
-  const shipment = o.shipments.at(-1);
+  const tracked = publicShipments(o.shipments.filter((s) => s.tracking_number || s.status !== "pending"));
   const a = o.shipping_address;
 
   return (
@@ -61,14 +63,10 @@ export function OrderDetail({ order: o, accessKey, justPlaced }: { order: OrderR
           {o.estimated_delivery_to && !["delivered"].includes(o.status) && (
             <p className="mt-5 text-center text-sm">Estimated delivery: <strong>{new Date(o.estimated_delivery_from ?? o.estimated_delivery_to).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – {new Date(o.estimated_delivery_to).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</strong></p>
           )}
-          {shipment && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-paper px-4 py-3 text-sm">
-              <span className="flex items-center gap-2"><Package className="h-4 w-4 text-accent-ink" /> {shipment.carrier ?? "Courier"}{shipment.tracking_number ? ` · AWB ${shipment.tracking_number}` : ""} · <span className="capitalize">{shipment.status.replace(/_/g, " ")}</span></span>
-              {shipment.tracking_url && <a href={shipment.tracking_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-accent-ink">Track package <ExternalLink className="h-3.5 w-3.5" /></a>}
-            </div>
-          )}
         </section>
       )}
+
+      {tracked.length > 0 && <TrackingPanel initial={tracked} orderNumber={o.order_number} accessKey={accessKey} />}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <section className="card px-5" aria-label="Items">

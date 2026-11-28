@@ -23,7 +23,11 @@ export type OrderItemRow = {
   image_url: string | null; hsn_code: string | null; quantity: number; unit_price: number; customization: Record<string, unknown>;
   line_subtotal: number; discount: number; tax_rate: number; tax_amount: number; line_total: number;
 };
-export type ShipmentRow = { id: string; provider: string; carrier: string | null; tracking_number: string | null; tracking_url: string | null; status: string; shipped_at: string | null; delivered_at: string | null; created_at: string };
+export type TrackingEvent = { status: string; location: string | null; at: string | null; instructions: string | null; type: string | null };
+export type ShipmentRow = {
+  id: string; provider: string; carrier: string | null; tracking_number: string | null; tracking_url: string | null; status: string; shipped_at: string | null; delivered_at: string | null; created_at: string;
+  last_status: string | null; last_location: string | null; last_event_at: string | null; expected_delivery: string | null; last_synced_at: string | null; sync_error: string | null; events: TrackingEvent[] | null;
+};
 export type OrderRow = {
   id: string; order_number: string; access_key: string; owner_key: string | null; customer_id: string | null; email: string; phone: string; customer_name: string;
   status: OrderStatus; payment_status: PaymentStatus; payment_method: "razorpay" | "cod";
@@ -78,11 +82,13 @@ export async function getOrderForViewer(orderNumber: string, key: string | null 
 export async function listCustomerOrders(customerId: string) {
   const { data } = await db()
     .from("shop_orders")
-    .select("id, order_number, status, payment_status, payment_method, grand_total, created_at, items:shop_order_items (product_name, quantity, image_url)")
+    .select("id, order_number, status, payment_status, payment_method, grand_total, created_at, estimated_delivery_to, items:shop_order_items (product_name, quantity, image_url), shipments:shop_shipments (carrier, tracking_number, status, last_status, last_location, last_event_at, expected_delivery, created_at)")
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false })
     .limit(100);
-  return (data ?? []) as unknown as { id: string; order_number: string; status: OrderStatus; payment_status: PaymentStatus; payment_method: string; grand_total: number; created_at: string; items: { product_name: string; quantity: number; image_url: string | null }[] }[];
+  return (data ?? []) as unknown as { id: string; order_number: string; status: OrderStatus; payment_status: PaymentStatus; payment_method: string; grand_total: number; created_at: string; estimated_delivery_to: string | null;
+    items: { product_name: string; quantity: number; image_url: string | null }[];
+    shipments: { carrier: string | null; tracking_number: string | null; status: string; last_status: string | null; last_location: string | null; last_event_at: string | null; expected_delivery: string | null; created_at: string }[] }[];
 }
 
 export const toEmailOrder = (o: OrderRow): notify.EmailOrder => ({ ...o, items: o.items });
@@ -196,7 +202,8 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus, acto
   if (next === "shipped") {
     const s = fresh.shipments.at(-1);
     await notify.sendOrderShipped(toEmailOrder(fresh), { carrier: s?.carrier ?? null, tracking_number: s?.tracking_number ?? null, tracking_url: s?.tracking_url ?? null });
-    if (s && s.status !== "delivered") await db().from("shop_shipments").update({ status: "shipped", shipped_at: s.shipped_at ?? new Date().toISOString() }).eq("id", s.id);
+    // Don't overwrite a more detailed courier status (in transit, out for delivery…).
+    if (s && ["pending", "packed"].includes(s.status)) await db().from("shop_shipments").update({ status: "shipped", shipped_at: s.shipped_at ?? new Date().toISOString() }).eq("id", s.id);
   }
   if (next === "delivered") {
     const s = fresh.shipments.at(-1);
@@ -273,7 +280,7 @@ export async function upsertShipment(orderId: string, s: { id?: string | null; c
     tracking_number: s.trackingNumber,
     tracking_url: s.trackingUrl || trackingUrl(s.carrier, s.trackingNumber),
     status: s.status,
-    provider: s.provider ?? "manual",
+    provider: s.provider ?? (/delhivery/i.test(s.carrier ?? "") ? "delhivery" : "manual"),
     provider_ref: s.providerRef ?? null,
     ...(s.status === "shipped" || s.status === "in_transit" ? { shipped_at: new Date().toISOString() } : {}),
     ...(s.status === "delivered" ? { delivered_at: new Date().toISOString() } : {}),

@@ -26,7 +26,8 @@ const errText = (e: { code?: string; message?: string; details?: string | null; 
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  if (!keyOk(url.searchParams.get("key"))) return json({ error: "Add ?key=YOUR_CRON_SECRET to the URL (CRON_SECRET must be set in Netlify)." }, 401);
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
+  if (!keyOk(bearer ?? url.searchParams.get("key"))) return json({ error: "Send Authorization: Bearer <CRON_SECRET> (or ?key=… from a browser). CRON_SECRET must be set in your hosting environment variables." }, 401);
 
   const checks: Record<string, Check> = {};
   const fromAddress = serverEnv.emailFrom;

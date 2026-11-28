@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/shop/components/admin/kit";
 import { OrderAdminPanel } from "@/shop/components/admin/OrderAdmin";
+import { TrackingPanel } from "@/shop/components/account/TrackingPanel";
+import { publicShipments } from "@/shop/server/shipping/public";
 import { Badge, type Tone } from "@/shop/components/ui";
 import { shopHref } from "@/shop/config";
 import { formatINR } from "@/shop/lib/money";
@@ -65,6 +67,13 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
             </dl>
           </section>
 
+          {o.shipments.some((s) => s.tracking_number) && (
+            <>
+              {o.shipments.filter((s) => s.sync_error).map((s) => <p key={s.id} className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-950">Tracking sync for AWB {s.tracking_number}: {s.sync_error}</p>)}
+              <TrackingPanel initial={publicShipments(o.shipments.filter((s) => s.tracking_number))} orderNumber={o.order_number} accessKey={null} canRefresh={false} />
+            </>
+          )}
+
           <div className="grid gap-6 md:grid-cols-2">
             <section className="card p-5 text-sm">
               <h2 className="font-bold">Customer</h2>
@@ -117,6 +126,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
           shipments={o.shipments}
           canRefund={can(admin.role, "refunds")}
           shiprocket={shopIntegrations.shiprocket}
+          delhivery={shopIntegrations.delhivery}
         />
       </div>
     </>

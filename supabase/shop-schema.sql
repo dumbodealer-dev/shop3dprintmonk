@@ -955,3 +955,14 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('shop-media', 'shop-media', true, 52428800,
         array['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'model/stl', 'application/octet-stream', 'model/3mf', 'text/plain'])
 on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+-- ── v2: courier tracking (Delhivery) — safe to re-run ──────────────────────
+alter table public.shop_shipments add column if not exists last_status text;          -- courier's own wording, e.g. "In Transit"
+alter table public.shop_shipments add column if not exists last_status_type text;     -- Delhivery StatusType: UD / DL / RT / PU / CN …
+alter table public.shop_shipments add column if not exists last_location text;
+alter table public.shop_shipments add column if not exists last_event_at timestamptz;
+alter table public.shop_shipments add column if not exists expected_delivery date;
+alter table public.shop_shipments add column if not exists last_synced_at timestamptz;
+alter table public.shop_shipments add column if not exists sync_error text;
+create index if not exists shop_shipments_tracking_idx on public.shop_shipments (provider, status) where tracking_number is not null;
+create index if not exists shop_shipments_awb_idx on public.shop_shipments (tracking_number);

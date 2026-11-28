@@ -19,7 +19,8 @@ import { findMethod } from "./shipping";
  * across devices. Prices are never stored in the cart — they're read live from
  * the catalogue every time totals are computed.
  */
-export const GUEST_COOKIE = "pm_shop_cart";
+export { GUEST_COOKIE } from "@/shop/cookies";
+import { GUEST_COOKIE } from "@/shop/cookies";
 export const MAX_LINE_QTY = 99;
 
 export async function getOwnerKey(create = false): Promise<string | null> {
@@ -282,7 +283,7 @@ export async function mergeGuestIntoCustomer(customerId: string) {
     await db().from("shop_wishlist_items").upsert(wish.map((w) => ({ owner_key: target, product_id: w.product_id })), { onConflict: "owner_key,product_id", ignoreDuplicates: true });
     await db().from("shop_wishlist_items").delete().eq("owner_key", guestKey);
   }
-  (await cookies()).set(GUEST_COOKIE, "", { path: "/", maxAge: 0, domain: shopEnv.cookieDomain });
+  (await cookies()).set(GUEST_COOKIE, "", { httpOnly: true, secure: shopEnv.isProd, sameSite: "lax", path: "/", maxAge: 0, domain: shopEnv.cookieDomain });
 }
 
 /** Lightweight count for the header badge. */

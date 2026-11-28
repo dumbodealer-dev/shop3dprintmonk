@@ -6,6 +6,7 @@ import { SHOP_ROUTE } from "@/shop/config";
 import { slugify } from "@/shop/lib/slug";
 import { ORDER_STATUSES } from "@/shop/lib/order-status";
 import { emailSchema } from "@/shop/lib/validation";
+import { isHttpsUrl, optionalHttpsUrl, optionalStorageUrl } from "@/shop/lib/url";
 import { settingsSchemas, type SettingsSection } from "@/shop/lib/settings-schema";
 import { createAdmin, createAdminResetToken, ROLES } from "../auth/admin";
 import { randomToken } from "../auth/crypto";
@@ -15,6 +16,7 @@ import { sendPasswordReset } from "../notifications";
 import { addEvent, cancelOrder, getOrderById, refundOrder, updateOrderStatus, upsertShipment } from "../orders";
 import { saveSettings, getSettings } from "../settings";
 import { shiprocket } from "../shipping";
+import { syncByAwbs, syncOrderTracking } from "../shipping/tracking";
 import { adminAction, revalidateStore } from "./action";
 import { deleteOrArchiveProduct, importProductsCsv, saveProduct } from "./products";
 
@@ -65,7 +67,7 @@ const categorySchema = z.object({
   slug: z.string().trim().max(80).optional(),
   description: z.string().trim().max(1000).optional().nullable(),
   parentId: uuid.nullable().optional().or(z.literal("")).transform((v) => v || null),
-  imageUrl: z.url().nullable().optional().or(z.literal("")).transform((v) => v || null),
+  imageUrl: optionalStorageUrl,
   sortOrder: z.coerce.number().int().min(0).max(10000).default(100),
   isActive: z.boolean().default(true),
 });
@@ -98,7 +100,7 @@ const dateOrNull = z.string().nullable().optional().transform((v) => (v ? new Da
 export async function saveCollectionAction(input: unknown) {
   return adminAction("content", "collection.save", async () => {
     const c = z
-      .object({ id: uuid.optional().nullable(), name: z.string().trim().min(2).max(80), slug: z.string().trim().max(80).optional(), description: z.string().trim().max(1000).optional().nullable(), imageUrl: z.url().nullable().optional().or(z.literal("")).transform((v) => v || null), isFeatured: z.boolean(), isSeasonal: z.boolean(), isActive: z.boolean(), startsAt: dateOrNull, endsAt: dateOrNull, sortOrder: z.coerce.number().int().min(0).max(10000).default(100), productIds: z.array(uuid).max(200).default([]) })
+      .object({ id: uuid.optional().nullable(), name: z.string().trim().min(2).max(80), slug: z.string().trim().max(80).optional(), description: z.string().trim().max(1000).optional().nullable(), imageUrl: optionalStorageUrl, isFeatured: z.boolean(), isSeasonal: z.boolean(), isActive: z.boolean(), startsAt: dateOrNull, endsAt: dateOrNull, sortOrder: z.coerce.number().int().min(0).max(10000).default(100), productIds: z.array(uuid).max(200).default([]) })
       .parse(input);
     const row = { name: c.name, slug: slugify(c.slug || c.name), description: c.description || null, image_url: c.imageUrl, is_featured: c.isFeatured, is_seasonal: c.isSeasonal, is_active: c.isActive, starts_at: c.startsAt, ends_at: c.endsAt, sort_order: c.sortOrder };
     const res = c.id ? await db().from("shop_collections").update(row).eq("id", c.id).select("id").single() : await db().from("shop_collections").insert(row).select("id").single();
@@ -130,8 +132,8 @@ export async function saveBannerAction(input: unknown) {
         title: z.string().trim().min(2).max(140),
         subtitle: z.string().trim().max(300).optional().nullable(),
         ctaLabel: z.string().trim().max(40).optional().nullable(),
-        ctaUrl: z.string().trim().max(300).optional().nullable().refine((u) => !u || u.startsWith("/") || /^https:\/\//.test(u), "Use a path like /products or an https:// link"),
-        imageUrl: z.url().nullable().optional().or(z.literal("")).transform((v) => v || null),
+        ctaUrl: z.string().trim().max(300).optional().nullable().refine((u) => !u || /^\/(?![/\\])[\w\-./?=&#%~+]*$/.test(u) || isHttpsUrl(u), "Use a path like /products or an https:// link"),
+        imageUrl: optionalStorageUrl,
         theme: z.enum(["dark", "light", "accent"]),
         isActive: z.boolean(),
         startsAt: dateOrNull,
@@ -185,7 +187,7 @@ export async function shipmentAction(orderId: string, input: unknown) {
         id: uuid.optional().nullable(),
         carrier: z.string().trim().max(60).nullable().optional().transform((v) => v || null),
         trackingNumber: z.string().trim().max(60).nullable().optional().transform((v) => v || null),
-        trackingUrl: z.url().nullable().optional().or(z.literal("")).transform((v) => v || null),
+        trackingUrl: optionalHttpsUrl,
         status: z.enum(["pending", "packed", "shipped", "in_transit", "out_for_delivery", "delivered", "returned", "cancelled"]),
         markOrderShipped: z.boolean().default(false),
       })
@@ -196,8 +198,14 @@ export async function shipmentAction(orderId: string, input: unknown) {
       const o = await getOrderById(id);
       if (o && ["payment_confirmed", "processing", "ready_for_shipment"].includes(o.status)) await updateOrderStatus(id, "shipped", `admin:${admin.fullName}`, null);
     }
+    // Delhivery AWBs: pull live tracking straight away (may also advance the order automatically).
+    let synced = "";
+    if (s.trackingNumber && /delhivery/i.test(s.carrier ?? "") && shopIntegrations.delhivery) {
+      const r = await syncByAwbs([s.trackingNumber]).catch(() => ({ updated: 0, errors: 1 }));
+      synced = r.updated ? " Live Delhivery tracking loaded." : " Delhivery hasn't reported this AWB yet — it will sync automatically.";
+    }
     revalidateAdmin();
-    return { message: s.markOrderShipped ? "Shipment saved and customer notified." : "Shipment saved.", entity: "order", entityId: orderId };
+    return { message: (s.markOrderShipped ? "Shipment saved and customer notified." : "Shipment saved.") + synced, entity: "order", entityId: orderId };
   });
 }
 
@@ -214,6 +222,15 @@ export async function shiprocketShipmentAction(orderId: string) {
     await upsertShipment(o.id, { carrier: r.carrier, trackingNumber: r.trackingNumber, trackingUrl: r.trackingNumber ? `https://shiprocket.co/tracking/${r.trackingNumber}` : null, status: "packed", provider: "shiprocket", providerRef: r.providerRef }, `admin:${admin.fullName}`);
     revalidateAdmin();
     return { message: `Shiprocket shipment created${r.trackingNumber ? ` (AWB ${r.trackingNumber})` : ""}.`, entity: "order", entityId: orderId };
+  });
+}
+
+export async function syncTrackingAction(orderId: string) {
+  return adminAction("orders", "order.tracking_sync", async () => {
+    if (!shopIntegrations.delhivery) throw new ShopError("Set DELHIVERY_API_TOKEN to enable live tracking.", 400);
+    const r = await syncOrderTracking(uuid.parse(orderId), 0);
+    revalidateAdmin();
+    return { message: r.updated ? `Tracking updated (${r.updated} shipment${r.updated > 1 ? "s" : ""}).` : r.errors ? "Delhivery didn't return tracking for this AWB yet." : "No open Delhivery shipments on this order.", entity: "order", entityId: orderId };
   });
 }
 

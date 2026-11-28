@@ -25,7 +25,7 @@ export async function sendEmail(input: { to: string[]; subject: string; html: st
       body: JSON.stringify({
         from: serverEnv.emailFrom,
         to: input.to,
-        subject: input.subject,
+        subject: input.subject.replace(/[\r\n\t]+/g, " ").slice(0, 250), // user-typed text never breaks headers
         html: input.html,
         text: input.text,
         reply_to: input.replyTo,

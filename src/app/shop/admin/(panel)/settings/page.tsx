@@ -16,6 +16,7 @@ export default async function SettingsAdmin() {
     ["Email (Resend)", integrations.email],
     ["Razorpay keys", shopIntegrations.razorpay],
     ["Razorpay webhook secret", shopIntegrations.razorpayWebhook],
+    ["Delhivery tracking", shopIntegrations.delhivery],
     ["Shiprocket (optional)", shopIntegrations.shiprocket],
   ] as const;
   return (

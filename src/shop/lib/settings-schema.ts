@@ -6,12 +6,11 @@ import { z } from "zod";
  * anything is configured. Shared by server and the admin form.
  */
 const str = (d = "") => z.string().trim().max(2000).default(d);
-const opt = z.string().trim().max(2000).nullable().default(null);
 
 export const storeSettingsSchema = z.object({
   name: str("3D PRINTMONK Shop"),
   legalName: str(""),
-  logoUrl: opt,
+  logoUrl: z.string().trim().max(1000).nullable().default(null).refine((v) => !v || /^https:\/\/[^\s]+$/.test(v), "Use an https:// link"),
   email: str(""),
   supportEmail: str(""),
   phone: str(""),

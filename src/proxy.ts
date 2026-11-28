@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ADMIN_COOKIE, CUSTOMER_COOKIE } from "@/shop/cookies";
 
 /**
  * 1. Subdomain support for the Shop.
@@ -12,8 +13,6 @@ import { NextResponse, type NextRequest } from "next/server";
  *    cookie are sent to the right login page before anything renders. This is only a
  *    convenience — every page, action and API route still verifies the session itself.
  */
-const CUSTOMER_COOKIE = "pm_shop_sid";
-const ADMIN_COOKIE = "pm_shop_admin";
 const ACCOUNT_PUBLIC = ["/shop/account/login", "/shop/account/register", "/shop/account/forgot", "/shop/account/reset", "/shop/account/verify"];
 const ADMIN_PUBLIC = ["/shop/admin/login", "/shop/admin/forgot", "/shop/admin/reset", "/shop/admin/setup", "/shop/admin/api"];
 

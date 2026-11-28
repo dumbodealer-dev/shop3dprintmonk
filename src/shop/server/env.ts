@@ -20,6 +20,12 @@ export const shopEnv = {
     pickupPincode: process.env.SHIPROCKET_PICKUP_PINCODE ?? "",
     apiBase: process.env.SHIPROCKET_API_BASE || "https://apiv2.shiprocket.in/v1/external",
   },
+  delhivery: {
+    token: process.env.DELHIVERY_API_TOKEN ?? "",
+    apiBase: (process.env.DELHIVERY_API_BASE || "https://track.delhivery.com").replace(/\/$/, ""),
+    /** Shared secret Delhivery sends with scan-push webhooks (header or ?token=). */
+    webhookSecret: process.env.DELHIVERY_WEBHOOK_SECRET ?? "",
+  },
   cronSecret: process.env.CRON_SECRET ?? "",
 };
 
@@ -29,6 +35,9 @@ export const shopIntegrations = {
   },
   get razorpayWebhook() {
     return Boolean(shopEnv.razorpay.webhookSecret);
+  },
+  get delhivery() {
+    return Boolean(shopEnv.delhivery.token);
   },
   get shiprocket() {
     return Boolean(shopEnv.shiprocket.email && shopEnv.shiprocket.password);

@@ -69,7 +69,7 @@ export function trackingUrl(carrier: string | null, awb: string | null): string 
   if (!awb) return null;
   const c = (carrier ?? "").toLowerCase();
   const n = encodeURIComponent(awb);
-  if (c.includes("delhivery")) return `https://www.delhivery.com/track/package/${n}`;
+  if (c.includes("delhivery")) return `https://www.delhivery.com/track-v2/package/${n}`;
   if (c.includes("blue")) return `https://www.bluedart.com/web/guest/trackdartresult?trackFor=0&trackNo=${n}`;
   if (c.includes("dtdc")) return `https://www.dtdc.in/tracking.asp?strCnno=${n}`;
   if (c.includes("india post") || c.includes("speed post")) return `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;

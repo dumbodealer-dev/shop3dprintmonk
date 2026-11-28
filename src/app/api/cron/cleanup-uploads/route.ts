@@ -19,7 +19,12 @@ export async function GET(request: Request) {
   let removed = 0;
   for (const session of sessions ?? []) {
     const { data: files } = await bucket.list(`pending/${session.name}`, { limit: 100 });
-    const stale = (files ?? []).filter((f) => f.created_at && new Date(f.created_at).getTime() < cutoff).map((f) => `pending/${session.name}/${f.name}`);
+    const candidates = (files ?? []).filter((f) => f.created_at && new Date(f.created_at).getTime() < cutoff).map((f) => `pending/${session.name}/${f.name}`);
+    if (!candidates.length) continue;
+    // If moving a file into its enquiry folder failed, the enquiry still points at pending/ — keep those.
+    const { data: linked } = await getSupabaseAdmin()!.from("enquiry_files").select("storage_path").in("storage_path", candidates);
+    const keep = new Set((linked ?? []).map((l) => l.storage_path));
+    const stale = candidates.filter((p) => !keep.has(p));
     if (stale.length) {
       await bucket.remove(stale);
       removed += stale.length;

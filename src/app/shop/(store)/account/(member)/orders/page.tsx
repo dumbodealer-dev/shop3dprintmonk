@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Package } from "lucide-react";
+import { Package, Truck } from "lucide-react";
 import { Badge, EmptyState, ProductPlaceholder, type Tone } from "@/shop/components/ui";
 import { shopHref } from "@/shop/config";
 import { formatINR } from "@/shop/lib/money";
@@ -38,6 +38,7 @@ export default async function OrdersPage() {
                     <p className="font-mono text-sm font-semibold">{o.order_number}</p>
                     <p className="truncate text-sm text-muted">{o.items.map((i) => `${i.product_name} ×${i.quantity}`).join(", ")}</p>
                     <p className="text-xs text-muted">{new Date(o.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <TrackingLine order={o} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
                     <span className="font-bold">{formatINR(o.grand_total)}</span>
@@ -51,5 +52,27 @@ export default async function OrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+type ListedOrder = Awaited<ReturnType<typeof listCustomerOrders>>[number];
+
+/** One-line live status for an order: courier, AWB, latest scan and expected date. */
+function TrackingLine({ order: o }: { order: ListedOrder }) {
+  const s = [...o.shipments].sort((a, b) => a.created_at.localeCompare(b.created_at)).at(-1);
+  if (!s?.tracking_number) {
+    if (["payment_confirmed", "processing", "ready_for_shipment"].includes(o.status))
+      return <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted"><Truck className="h-3.5 w-3.5" /> Being prepared{o.estimated_delivery_to ? ` · expected by ${new Date(o.estimated_delivery_to).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}</p>;
+    return null;
+  }
+  const latest = s.last_status ?? s.status.replace(/_/g, " ");
+  const eta = s.status !== "delivered" && s.expected_delivery ? ` · arriving ${new Date(`${s.expected_delivery}T12:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}` : "";
+  return (
+    <p className={`mt-1.5 flex flex-wrap items-center gap-x-1.5 text-xs ${s.status === "delivered" ? "text-success" : s.status === "returned" ? "text-warning" : "text-accent-ink"}`}>
+      <Truck className="h-3.5 w-3.5" />
+      <span className="font-semibold capitalize">{latest}</span>
+      {s.last_location && <span className="text-muted">· {s.last_location.replace(/_/g, " ")}</span>}
+      <span className="text-muted">· {s.carrier ?? "Courier"} {s.tracking_number}{eta}</span>
+    </p>
   );
 }

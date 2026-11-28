@@ -83,6 +83,9 @@ header/footer while the Shop has its own. **All URLs of the main site are unchan
 | Order privacy | Orders visible only to the owner or via a random per-order key (timing-safe compare) |
 | Uploads | Admin-only; type sniffed from file contents; size limits; random file names |
 | Database | RLS enabled on every shop table with no public policies; functions executable only by `service_role` |
+| Headers | Content-Security-Policy (script/frame/connect allow-lists), HSTS, X-Frame-Options + frame-ancestors, nosniff, Referrer-Policy, Permissions-Policy, COOP |
+| URLs | Every stored URL is validated: links must be `https://`, images/models must be in the shop's own storage (blocks `javascript:`/`data:` links); checked again when rendered |
+| Cookies | Production names use `__Host-` (admin) and `__Secure-` (customer, cart) prefixes |
 | Secrets | Only in environment variables; `server-only` guard breaks the build if server code is imported in the browser |
 
 ## 3. Setup
@@ -130,6 +133,24 @@ header/footer while the Shop has its own. **All URLs of the main site are unchan
   name, then set **Shipping provider** to `shiprocket` in Admin → Store settings → Shipping — PIN serviceability
   checks use the Shiprocket API and orders get a **Create via Shiprocket** button.
 
+### 3.4a Delhivery (live tracking)
+
+1. In the Delhivery One panel → **Settings → API setup**, copy your API token into `DELHIVERY_API_TOKEN`
+   (use a staging token with `DELHIVERY_API_BASE=https://staging-express.delhivery.com` while testing).
+2. When you ship an order, open it in **Admin → Orders**, choose courier **Delhivery** (pre-selected when the
+   token is set), paste the **AWB / waybill number** and save. Live scans are fetched immediately.
+3. From then on the shipment syncs automatically every 15 minutes (the shop cron), whenever the customer
+   opens **Refresh** on their order, and instantly if Delhivery's push webhook is enabled (optional:
+   ask your Delhivery account manager to push scans to `<NEXT_PUBLIC_SHOP_URL>/api/shipping/delhivery/webhook`
+   with header `Authorization: Bearer <DELHIVERY_WEBHOOK_SECRET>`).
+4. Orders move on their own: first pickup / in-transit scan → **Shipped** (customer gets the tracking email),
+   delivery scan → **Delivered** (delivered email; COD is marked paid and the GST invoice is issued),
+   RTO → order flagged for review with a note.
+
+Customers see, in **My orders**, a live line per order (latest scan, location, AWB, expected date) and on the
+order page a full tracking panel: progress bar, current status and location, expected delivery, every scan
+in a timeline, copy-AWB and a link to Delhivery's tracking page. The same panel appears for admins.
+
 ### 3.5 Scheduled job
 
 Every 15 minutes (Hostinger cron / cron-job.org):
@@ -138,7 +159,7 @@ Every 15 minutes (Hostinger cron / cron-job.org):
 curl -s https://www.3dprintmonk.com/shop/api/cron -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-It releases stock from unpaid orders (after checking Razorpay), and cleans up expired sessions,
+It releases stock from unpaid orders (after checking Razorpay), syncs Delhivery tracking, and cleans up expired sessions,
 tokens and abandoned guest carts. Keep the existing daily `/api/cron/cleanup-uploads` job too.
 
 ### 3.6 Email
@@ -161,6 +182,7 @@ All documented in `.env.example`. ★ = secret.
 | `SHOP_ADMIN_SETUP_TOKEN` ★ | first run | Unlocks `/shop/admin/setup` |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` ★ | online payments | Razorpay API keys |
 | `RAZORPAY_WEBHOOK_SECRET` ★ | online payments | Webhook signature secret |
+| `DELHIVERY_API_TOKEN` ★ / `DELHIVERY_API_BASE` / `DELHIVERY_WEBHOOK_SECRET` ★ | Delhivery | Live tracking (and optional scan-push webhook) |
 | `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD` ★ / `SHIPROCKET_PICKUP_LOCATION` / `SHIPROCKET_PICKUP_PINCODE` | optional | Shiprocket API user |
 | Existing: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` ★, `RESEND_API_KEY` ★, `EMAIL_FROM`, `BUSINESS_NOTIFICATION_EMAIL`, `IP_HASH_SALT` ★, `CRON_SECRET` ★ | yes | Shared with the main site |
 
@@ -214,6 +236,7 @@ tracking, mark shipped/delivered → customer timeline → refund → stock rest
 | Supabase | Database, product image storage | URL, service-role key (existing) |
 | Resend | All shop emails | API key, verified domain (existing) |
 | Razorpay | UPI / cards / net banking / wallets, refunds | Key id, key secret, webhook secret |
+| Delhivery | Live shipment tracking | API token (+ optional webhook secret) |
 | Shiprocket *(optional)* | Courier serviceability, AWB generation | API user email/password, pickup location |
 | Cron runner | Releasing unpaid stock, clean-up | `CRON_SECRET` (existing) |
 
@@ -224,5 +247,6 @@ tracking, mark shipped/delivered → customer timeline → refund → stock rest
   operations run inside the PostgreSQL functions.
 - Invoices are HTML (print / save as PDF from the browser). A server-side PDF renderer can be added later.
 - The in-memory rate limiter is per process (fine for a single Hostinger Node app; use Redis/Upstash if you scale out).
-- Shiprocket tracking webhooks are not wired yet; update shipment status from the order page or add a webhook route.
+- Delhivery is used for tracking; AWBs are created in the Delhivery panel and pasted into the order (automatic AWB/manifest creation through Delhivery's API can be added next).
+- Shiprocket tracking webhooks are not wired yet.
 - Email verification links are single-use; some corporate mail scanners pre-open links — customers can resend from their account.

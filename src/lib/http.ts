@@ -20,7 +20,8 @@ export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true; // non-browser clients; other protections still apply
   try {
-    return new URL(origin).host === request.headers.get("host");
+    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+    return new URL(origin).host === host;
   } catch {
     return false;
   }

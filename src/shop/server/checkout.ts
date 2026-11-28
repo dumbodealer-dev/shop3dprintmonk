@@ -5,7 +5,7 @@ import { shopHref } from "@/shop/config";
 import { toPaise } from "@/shop/lib/money";
 import type { CheckoutInput } from "@/shop/lib/validation";
 import { getCustomer, registerCustomer, startCustomerSession } from "./auth/customer";
-import { randomToken } from "./auth/crypto";
+import { randomToken, sha256 } from "./auth/crypto";
 import { getCartView, getOwnerKey, type CartView } from "./cart";
 import { db, must, ShopError } from "./db";
 import { shopEnv, shopIntegrations } from "./env";
@@ -66,7 +66,9 @@ export async function placeOrder(input: CheckoutInput, ip: string): Promise<Plac
   if (!ownerKey) throw new ShopError("Your cart is empty.", 409, "empty_cart");
 
   // Same idempotency key sent twice (double click, retry after a timeout) → return the first order.
-  const { data: prior } = await db().from("shop_orders").select("id").eq("idempotency_key", input.idempotencyKey).maybeSingle();
+  // The key is bound to this shopper's cart identity, so a leaked/guessed key can never return someone else's order.
+  const idempotencyKey = sha256(`${ownerKey}|${input.idempotencyKey}`);
+  const { data: prior } = await db().from("shop_orders").select("id").eq("idempotency_key", idempotencyKey).maybeSingle();
   if (prior) return resumePayment(prior.id);
 
   const billing = input.billingSameAsShipping || !input.billingAddress ? input.shippingAddress : input.billingAddress;
@@ -120,7 +122,7 @@ export async function placeOrder(input: CheckoutInput, ip: string): Promise<Plac
     const { data, error } = await db().rpc("shop_place_order", {
       p_order: {
         order_number: orderNumber,
-        idempotency_key: input.idempotencyKey,
+        idempotency_key: idempotencyKey,
         access_key: accessKey,
         owner_key: ownerKey,
         customer_id: customer?.id ?? null,

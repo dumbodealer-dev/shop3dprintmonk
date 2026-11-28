@@ -3,6 +3,7 @@ import { esc, layout, rows, sendEmail, type SendResult } from "@/lib/email";
 import { serverEnv } from "@/lib/env";
 import { shopUrl } from "@/shop/config";
 import { formatINR } from "@/shop/lib/money";
+import { isHttpsUrl } from "@/shop/lib/url";
 import { getSettings } from "./settings";
 
 /**
@@ -155,6 +156,7 @@ export function sendPaymentFailed(o: EmailOrder) {
 }
 
 export function sendOrderShipped(o: EmailOrder, s: { carrier: string | null; tracking_number: string | null; tracking_url: string | null }) {
+  if (s.tracking_url && !isHttpsUrl(s.tracking_url)) s = { ...s, tracking_url: null };
   return toCustomer(
     o.email,
     `Your order ${o.order_number} has shipped`,

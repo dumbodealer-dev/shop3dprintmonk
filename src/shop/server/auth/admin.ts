@@ -15,7 +15,8 @@ import { consumeToken, issueToken } from "./tokens";
  * AND every admin action/route re-checks the session server-side, so changing a
  * URL or editing browser data can never grant access.
  */
-export const ADMIN_COOKIE = "pm_shop_admin";
+export { ADMIN_COOKIE } from "@/shop/cookies";
+import { ADMIN_COOKIE } from "@/shop/cookies";
 const SESSION_HOURS = 12;
 const IDLE_MINUTES = 120;
 

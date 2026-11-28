@@ -11,14 +11,14 @@ const schema = z.object({
   state: z.enum(STATE_NAMES).optional().catch(undefined),
   pincode: z.string().regex(/^\d{6}$/).optional().catch(undefined),
   paymentMethod: z.enum(["razorpay", "cod"]).nullable().optional(),
-  couponCode: z.string().trim().max(40).nullable().optional(),
   email: z.email().nullable().optional().catch(null),
 });
 
 /** Server-calculated totals for the checkout summary (the browser never calculates prices). */
 export const POST = route(
   async (req) => {
-    const q = await checkoutQuote(schema.parse(await body(req)));
+    // Coupons are applied only through /api/cart/coupon (strictly rate-limited), never here.
+    const q = await checkoutQuote({ ...schema.parse(await body(req)), couponCode: undefined });
     return json({ cart: publicCart(q.cart), service: q.service, methods: q.methods, cod: q.cod, razorpayAvailable: q.razorpayAvailable });
   },
   { rate: ["quote", 120, 60_000] },
