@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { mainNav } from "@/config/navigation";
+import { SHOP_ENTRY_HREF } from "@/shop/config";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -73,11 +74,14 @@ export function MobileNav() {
               <li className="py-1"><Link href="/faq" className="block py-3 text-lg font-semibold text-white">FAQ</Link></li>
             </ul>
           </nav>
+          <Link href={SHOP_ENTRY_HREF} className="mt-6 flex h-13 items-center justify-center rounded-full border border-accent text-base font-semibold text-accent">
+            Shop 3D printed products
+          </Link>
           <Link
             href="/get-a-quote"
             data-track="cta_get_quote"
             data-track-location="mobile_menu"
-            className="mt-6 flex h-13 items-center justify-center rounded-full bg-accent text-base font-semibold text-ink-950"
+            className="mt-3 flex h-13 items-center justify-center rounded-full bg-accent text-base font-semibold text-ink-950"
           >
             Get a Quote
           </Link>
