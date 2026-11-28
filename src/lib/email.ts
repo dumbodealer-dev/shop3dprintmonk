@@ -13,10 +13,10 @@ import {
 import { formatBytes } from "./files";
 import { whatsappLink } from "./whatsapp";
 
-type SendResult = { ok: true; id: string } | { ok: false; error: string };
+export type SendResult = { ok: true; id: string } | { ok: false; error: string };
 
 /** Sends through Resend's REST API (https://resend.com/docs/api-reference/emails/send-email). */
-async function sendEmail(input: { to: string[]; subject: string; html: string; text: string; replyTo?: string }): Promise<SendResult> {
+export async function sendEmail(input: { to: string[]; subject: string; html: string; text: string; replyTo?: string }): Promise<SendResult> {
   if (!integrations.email) return { ok: false, error: "Email service not configured" };
   try {
     const res = await fetch(`${process.env.RESEND_API_BASE || "https://api.resend.com"}/emails`, {
@@ -25,7 +25,7 @@ async function sendEmail(input: { to: string[]; subject: string; html: string; t
       body: JSON.stringify({
         from: serverEnv.emailFrom,
         to: input.to,
-        subject: input.subject,
+        subject: input.subject.replace(/[\r\n\t]+/g, " ").slice(0, 250), // user-typed text never breaks headers
         html: input.html,
         text: input.text,
         reply_to: input.replyTo,
@@ -40,10 +40,10 @@ async function sendEmail(input: { to: string[]; subject: string; html: string; t
   }
 }
 
-const esc = (s: string | number | undefined | null) =>
+export const esc = (s: string | number | undefined | null) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-function layout(title: string, body: string) {
+export function layout(title: string, body: string) {
   return `<!doctype html><html><body style="margin:0;background:#faf6f2;font-family:Segoe UI,Arial,sans-serif;color:#1c120c">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e9dfd6">
@@ -53,7 +53,7 @@ function layout(title: string, body: string) {
 </table></td></tr></table></body></html>`;
 }
 
-function rows(pairs: [string, string | number | undefined | null][]) {
+export function rows(pairs: [string, string | number | undefined | null][]) {
   return `<table cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:14px">${pairs
     .filter(([, v]) => v !== undefined && v !== null && v !== "")
     .map(

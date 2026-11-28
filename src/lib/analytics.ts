@@ -14,9 +14,13 @@ export type AnalyticsEvent =
   | "phone_click"
   | "email_click"
   | "cta_get_quote"
+  | "cta_shop"
+  | "shop_add_to_cart"
+  | "shop_begin_checkout"
+  | "shop_purchase"
   | "service_engagement";
 
-const ALLOWED_PARAMS = new Set(["location", "context", "step", "technology", "enquiry_type", "file_count", "page_path", "service"]);
+const ALLOWED_PARAMS = new Set(["location", "context", "step", "technology", "enquiry_type", "file_count", "page_path", "service", "value", "currency", "items"]);
 
 declare global {
   interface Window {

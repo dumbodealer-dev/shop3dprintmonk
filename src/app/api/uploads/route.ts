@@ -32,10 +32,12 @@ export async function POST(request: Request) {
   const ext = extensionOf(body.name);
   if (!allowedExtensions(body.allowReferences).includes(ext)) return json({ error: `.${ext || "?"} files are not accepted` }, 400);
   if (body.size > limits.maxFileBytes) return json({ error: `Files must be ${limits.maxFileMb} MB or smaller` }, 400);
-  if (body.existingCount >= limits.maxFiles) return json({ error: `You can attach up to ${limits.maxFiles} files` }, 400);
+  const db = getSupabaseAdmin()!;
+  // The browser's own count is only a hint; the server counts what is really in this upload session.
+  const { data: existing } = await db.storage.from(serverEnv.quoteBucket).list(`pending/${body.uploadSession}`, { limit: limits.maxFiles + 1 });
+  if (Math.max(body.existingCount, existing?.length ?? 0) >= limits.maxFiles) return json({ error: `You can attach up to ${limits.maxFiles} files` }, 400);
 
   const path = `pending/${body.uploadSession}/${randomUUID()}-${sanitizeFileName(body.name)}`;
-  const db = getSupabaseAdmin()!;
   const { data, error } = await db.storage.from(serverEnv.quoteBucket).createSignedUploadUrl(path);
   if (error || !data) {
     console.error("[uploads] signed URL failed:", error?.message);

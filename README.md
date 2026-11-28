@@ -4,6 +4,8 @@ Custom-coded website for **3D PRINTMONK**, a 3D printing service in Delhi (FDM, 
 
 The main job of the site is to turn visitors into **qualified quote requests**. The core feature is a multi-step quote form with secure file upload.
 
+> **🛒 Shop (ecommerce):** a full online store — catalogue, cart, checkout with Razorpay/COD and GST invoices, customer accounts and a role-based admin dashboard — lives at **`/shop`** and is ready to move to **shop.3dprintmonk.com**. Setup, architecture, environment variables and deployment: **[docs/SHOP.md](docs/SHOP.md)**.
+
 ---
 
 ## Contents
@@ -54,7 +56,9 @@ The main job of the site is to turn visitors into **qualified quote requests**. 
 ```
 src/
   app/                       Routes (each folder = a URL)
-    page.tsx                 Homepage
+    (site)/                  Main website pages (route group: shares the site header/footer; URLs unchanged)
+    shop/                    Ecommerce store, accounts, admin & shop API (see docs/SHOP.md)
+    page.tsx                 Homepage (in (site)/)
     services/…               Service pages
     materials/[slug]/        Material detail pages
     get-a-quote/             Quote form + thank-you page
@@ -74,9 +78,13 @@ src/
     navigation.ts
   content/                   Default content: materials, services, industries, FAQ, blog, portfolio
   lib/                       Server & shared logic (env, supabase, email, files, validation, seo, analytics…)
+  shop/                      Ecommerce logic, server modules and components (see docs/SHOP.md)
+  proxy.ts                   Shop subdomain rewrite + auth redirects
 supabase/
   schema.sql                 Tables, enums, triggers, RLS, storage buckets
   seed.sql                   Materials library seed (generated: npm run db:seed-sql)
+  shop-schema.sql            Shop tables, transactional functions, RLS, storage (run after schema.sql)
+  shop-seed.sql              Sample shop catalogue & test coupons (development only)
 scripts/generate-seed.mts
 ```
 

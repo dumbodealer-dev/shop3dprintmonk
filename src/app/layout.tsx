@@ -2,14 +2,9 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { business } from "@/config/business";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import { SetupBanner } from "@/components/layout/SetupBanner";
-import { FloatingWhatsApp } from "@/components/layout/FloatingWhatsApp";
 import { Analytics } from "@/components/analytics/Analytics";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { organizationJsonLd } from "@/lib/seo";
-import { whatsappLink } from "@/lib/whatsapp";
 
 // Self-hosted variable fonts (no runtime request to Google Fonts).
 const manrope = localFont({
@@ -49,11 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-IN" data-scroll-behavior="smooth" className={`${manrope.variable} ${jetbrains.variable}`}>
       <body className="min-h-dvh">
-        <SetupBanner />
-        <Header />
-        <main id="main">{children}</main>
-        <Footer />
-        <FloatingWhatsApp href={whatsappLink("general")} />
+        {/* Site chrome (header/footer) lives in app/(site)/layout.tsx; the shop has its own in app/shop. */}
+        {children}
         <Analytics />
         <JsonLd data={organizationJsonLd()} />
       </body>

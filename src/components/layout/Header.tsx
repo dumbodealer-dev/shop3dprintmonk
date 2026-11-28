@@ -6,6 +6,8 @@ import { MobileNav } from "./MobileNav";
 import { NavLink } from "./NavLink";
 import { NavDropdown } from "./NavDropdown";
 import { business } from "@/config/business";
+import { ShoppingBag } from "lucide-react";
+import { SHOP_ENTRY_HREF } from "@/shop/config";
 
 export function Header() {
   return (
@@ -39,6 +41,9 @@ export function Header() {
               Open 24×7
             </span>
           )}
+          <ButtonLink href={SHOP_ENTRY_HREF} variant="outline-dark" size="sm" className="border-accent/70 px-3 text-accent min-[400px]:px-4 lg:h-10 lg:px-5" aria-label="Shop 3D printed products" data-track="cta_shop" data-track-location="header">
+            <ShoppingBag className="h-4 w-4" aria-hidden="true" /> <span className="hidden min-[380px]:inline">Shop</span>
+          </ButtonLink>
           <span className="hidden min-[400px]:block">
             <ButtonLink href="/get-a-quote" size="sm" className="lg:h-10 lg:px-5" data-track="cta_get_quote" data-track-location="header">
               Get a Quote

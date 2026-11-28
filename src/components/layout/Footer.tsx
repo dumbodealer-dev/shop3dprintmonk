@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SHOP_ENTRY_HREF } from "@/shop/config";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { business } from "@/config/business";
 import { services } from "@/content/services";
@@ -42,6 +43,7 @@ export function Footer() {
             <FooterLink key={s.slug} href={`/services/${s.slug}`}>{s.name}</FooterLink>
           ))}
           <FooterLink href="/get-a-quote">Get a Quote</FooterLink>
+          <FooterLink href={SHOP_ENTRY_HREF}>Shop</FooterLink>
         </FooterCol>
 
         <FooterCol title="Materials">

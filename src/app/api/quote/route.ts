@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   }
 
   // ── Notifications: the enquiry is already saved, so an email failure never loses it.
-  // Awaited (not deferred) so it also completes on serverless hosts such as Netlify.
+  // Awaited (not deferred) so it also completes on serverless hosts.
   await (async () => {
     const fileLinks = await Promise.all(
       stored.map(async (f) => {
